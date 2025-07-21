@@ -108,3 +108,9 @@ impl Default for ConceptVector {
         }
     }
 }
+
+impl Default for SimilarityEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}

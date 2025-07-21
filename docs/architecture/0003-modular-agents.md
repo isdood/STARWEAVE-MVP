@@ -82,7 +82,7 @@ pub fn generate_proactive_prompt(&self) -> &str {
 ## Key Innovations
 
 1. **Specialized Intelligence Modules**:
-   - Each module focuses on a specific domain (Research, Creative, Verification)
+   - Each module focuses on a specific domain (Curiosity, Aesthetics, Verification)
    - Maintains its own concept subset and similarity engine
    - Can suggest concepts to other modules based on curiosity scores
 
@@ -114,12 +114,14 @@ pub fn generate_proactive_prompt(&self) -> &str {
 graph TD
     A[User Input] --> B(Embedding Generator)
     B --> C{Agent Orchestrator}
-    C -->|Route| D[Research Module]
-    C -->|Route| E[Creative Module]
-    D -->|Suggest| F[Co-Creation]
-    E -->|Suggest| F
-    F --> G[Response + Proactive Prompt]
-    G --> H[User]
+    C -->|Route| D[Curiosity Module]
+    C -->|Route| E[Aesthetics Module]
+    C -->|Route| F[Verification Module]
+    D -->|Suggest| G[Co-Creation]
+    E -->|Suggest| G
+    F -->|Suggest| G
+    G --> H[Response + Proactive Prompt]
+    H --> I[User]
 ```
 
 ## Collaboration Metrics

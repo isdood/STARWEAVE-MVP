@@ -1,6 +1,6 @@
 // #FFA07A Agent Orchestrator
 use crate::module_agent::ModuleAgent;
-use crate::concepts::{ConceptVector, cosine_similarity};
+use crate::concepts::cosine_similarity;
 use ndarray::Array1;
 use std::collections::HashMap;
 
@@ -12,10 +12,11 @@ pub struct AgentOrchestrator {
 
 impl AgentOrchestrator {
     pub fn new() -> Self {
-        let mut proactive_prompts = Vec::new();
-        proactive_prompts.push("What would happen if we combined these concepts?".to_string());
-        proactive_prompts.push("How might we approach this from a different perspective?".to_string());
-        proactive_prompts.push("What underlying patterns connect these ideas?".to_string());
+        let proactive_prompts = vec![
+            "What would happen if we combined these concepts?".to_string(),
+            "How might we approach this from a different perspective?".to_string(),
+            "What underlying patterns connect these ideas?".to_string(),
+        ];
 
         AgentOrchestrator {
             modules: HashMap::new(),
@@ -58,7 +59,9 @@ impl AgentOrchestrator {
             return "⚠️ Primary module not found\n".to_string();
         }
 
-        result.push_str(&format!("🧠 Primary module '{}' processing: {}\n", primary_module, input));
+        result.push_str(&format!(
+            "🧠 Primary module '{primary_module}' processing: {input}\n"
+        ));
 
         // Find another module to co-create with
         for name in self.modules.keys().filter(|&n| n != primary_module).cloned().collect::<Vec<_>>() {
@@ -72,7 +75,7 @@ impl AgentOrchestrator {
         // Process suggestions and record co-creations
         if !suggestions.is_empty() {
             for (name, suggestion) in &suggestions {
-                result.push_str(&format!("💡 Module '{}' suggests: {}\n", name, suggestion));
+                result.push_str(&format!("💡 Module '{name}' suggests: {suggestion}\n"));
 
                 if let Some(module) = self.modules.get_mut(name) {
                     module.record_co_creation();
@@ -96,5 +99,11 @@ impl AgentOrchestrator {
     pub fn generate_proactive_prompt(&self) -> &str {
         let index = (self.propensity_to_co_create * self.proactive_prompts.len() as f32) as usize;
         self.proactive_prompts.get(index).unwrap_or(&self.proactive_prompts[0])
+    }
+}
+
+impl Default for AgentOrchestrator {
+    fn default() -> Self {
+        Self::new()
     }
 }

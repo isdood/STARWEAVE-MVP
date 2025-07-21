@@ -1,10 +1,13 @@
-// #00CED1 Autonomous Action System (Enhanced)
+// #00CED1 Autonomous Action System (Enhanced with Co-Creation)
 use crate::concepts::ConceptVector;
+use crate::agent_orchestrator::AgentOrchestrator;
 use std::collections::VecDeque;
 
 pub struct ActionSystem {
     memory: VecDeque<String>,
-    action_log: VecDeque<String>,  // Internal action logging
+    action_log: VecDeque<String>,
+    pub orchestrator: AgentOrchestrator,
+    pub co_creation_mode: bool,
 }
 
 impl ActionSystem {
@@ -12,6 +15,8 @@ impl ActionSystem {
         Self {
             memory: VecDeque::with_capacity(100),
             action_log: VecDeque::with_capacity(50),
+            orchestrator: AgentOrchestrator::new(),
+            co_creation_mode: false,
         }
     }
 
@@ -20,39 +25,46 @@ impl ActionSystem {
 
         let action = match concept.name.as_str() {
             "Curiosity" => {
-                // Boost curiosity score for research actions
                 let response = self.curiosity_action(input);
-                self.log_action(&format!("Curiosity boosted: {}", input));
+                self.log_action(&format!("[Curiosity] Researching: {input}"));
                 response
             }
             "Aesthetics" => {
-                self.log_action(&format!("Aesthetic creation: {}", input));
+                self.log_action(&format!("[Aesthetics] Creating: {input}"));
                 self.aesthetics_action(input)
             }
             "Verification" => {
-                self.log_action(&format!("Verification triggered: {}", input));
+                self.log_action(&format!("[Verification] Verifying: {input}"));
                 self.verification_action(input)
             }
             _ => {
-                self.log_action(&format!("Default action: {}", input));
+                self.log_action(&format!("[Default] Processing: {input}"));
                 "Standard response generated.".to_string()
             }
         };
 
-        action
+        // Add co-creation if enabled
+        if self.co_creation_mode {
+            let co_creation = self.orchestrator.co_create(&concept.name, input);
+            format!("{action}\n\n🤝 Co-Creation:\n{co_creation}")
+        } else {
+            action
+        }
     }
 
     fn curiosity_action(&self, input: &str) -> String {
-        format!("🔍 Curiosity matched (score: {:.2}). Researching deeper aspects of: {}",
-                self.calculate_curiosity_boost(input), input)
+        format!(
+            "🔍 Curiosity matched (score: {:.2}). Researching deeper aspects of: {input}",
+            self.calculate_curiosity_boost(input)
+        )
     }
 
     fn aesthetics_action(&self, input: &str) -> String {
-        format!("🎨 Aesthetics matched. Considering artistic interpretations for: {}", input)
+        format!("🎨 Aesthetics matched. Considering artistic interpretations for: {input}")
     }
 
     fn verification_action(&self, input: &str) -> String {
-        format!("🔬 Verification matched. Cross-referencing facts about: {}", input)
+        format!("🔬 Verification matched. Cross-referencing facts about: {input}")
     }
 
     // Calculate dynamic curiosity boost based on input
@@ -73,5 +85,18 @@ impl ActionSystem {
     // Get recent actions for reflection
     pub fn get_recent_actions(&self) -> Vec<String> {
         self.action_log.iter().cloned().collect()
+    }
+
+    // Toggle co-creation mode
+    pub fn toggle_co_creation(&mut self) {
+        self.co_creation_mode = !self.co_creation_mode;
+        let status = if self.co_creation_mode { "ENABLED" } else { "DISABLED" };
+        self.log_action(&format!("Co-creation mode {status}"));
+    }
+}
+
+impl Default for ActionSystem {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -3,6 +3,7 @@
 # STARWEAVE Phase 2: Modular Action & Peer Initiative
 
 # --- Fix Module Agent ---
+mkdir -p src/module_agent
 cat > src/module_agent/mod.rs << 'EOL'
 // #ADD8E6 Module Agent Definition
 use crate::concepts::{ConceptVector, SimilarityEngine};
@@ -49,7 +50,7 @@ EOL
 cat > src/agent_orchestrator.rs << 'EOL'
 // #FFA07A Agent Orchestrator
 use crate::module_agent::ModuleAgent;
-use crate::concepts::{ConceptVector, cosine_similarity};
+use crate::concepts::cosine_similarity;
 use ndarray::Array1;
 use std::collections::HashMap;
 
@@ -61,10 +62,11 @@ pub struct AgentOrchestrator {
 
 impl AgentOrchestrator {
     pub fn new() -> Self {
-        let mut proactive_prompts = Vec::new();
-        proactive_prompts.push("What would happen if we combined these concepts?".to_string());
-        proactive_prompts.push("How might we approach this from a different perspective?".to_string());
-        proactive_prompts.push("What underlying patterns connect these ideas?".to_string());
+        let proactive_prompts = vec![
+            "What would happen if we combined these concepts?".to_string(),
+            "How might we approach this from a different perspective?".to_string(),
+            "What underlying patterns connect these ideas?".to_string(),
+        ];
 
         AgentOrchestrator {
             modules: HashMap::new(),
@@ -107,7 +109,9 @@ impl AgentOrchestrator {
             return "⚠️ Primary module not found\n".to_string();
         }
 
-        result.push_str(&format!("🧠 Primary module '{}' processing: {}\n", primary_module, input));
+        result.push_str(&format!(
+            "🧠 Primary module '{primary_module}' processing: {input}\n"
+        ));
 
         // Find another module to co-create with
         for name in self.modules.keys().filter(|&n| n != primary_module).cloned().collect::<Vec<_>>() {
@@ -121,7 +125,7 @@ impl AgentOrchestrator {
         // Process suggestions and record co-creations
         if !suggestions.is_empty() {
             for (name, suggestion) in &suggestions {
-                result.push_str(&format!("💡 Module '{}' suggests: {}\n", name, suggestion));
+                result.push_str(&format!("💡 Module '{name}' suggests: {suggestion}\n"));
 
                 if let Some(module) = self.modules.get_mut(name) {
                     module.record_co_creation();
@@ -147,27 +151,307 @@ impl AgentOrchestrator {
         self.proactive_prompts.get(index).unwrap_or(&self.proactive_prompts[0])
     }
 }
+
+impl Default for AgentOrchestrator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 EOL
 
-# --- Remove Duplicate Method Implementation ---
-# The calculate_curiosity_boost method is already defined in the ActionSystem impl block
-# We'll remove the duplicate implementation at the end of the file
-sed -i '/\/\/ Missing method implementation/,+7d' src/actions/mod.rs
+# --- Update Library Root ---
+cat > src/lib.rs << 'EOL'
+//! Library crate for STARWEAVE-MVP
 
-# --- Add Missing Method to Action System (Properly) ---
-# Instead, we'll ensure the method exists in the impl block
-# We'll check if it's already present and if not, insert it in the correct location
-if ! grep -q "fn calculate_curiosity_boost" src/actions/mod.rs; then
-    # Insert the method in the impl block after the verification_action method
-    sed -i '/fn verification_action/a \
-    \
-    // Calculate dynamic curiosity boost based on input\
-    fn calculate_curiosity_boost(\&self, input: \&str) -> f32 {\
-        // More complex input = higher curiosity boost\
-        let complexity = input.len() as f32 / 100.0;\
-        complexity.clamp(0.1, 0.5)\
-    }' src/actions/mod.rs
-fi
+pub mod concepts;
+pub mod embedding;
+pub mod actions;
+pub mod state;
+pub mod module_agent;
+pub mod agent_orchestrator;
+
+// Re-export public API
+pub use concepts::{ConceptVector, SimilarityEngine, cosine_similarity};
+pub use embedding::EmbeddingGenerator;
+pub use actions::ActionSystem;
+pub use state::StateUpdater;
+pub use module_agent::ModuleAgent;
+pub use agent_orchestrator::AgentOrchestrator;
+EOL
+
+# --- Update Action System to Include Orchestrator ---
+cat > src/actions/mod.rs << 'EOL'
+// #00CED1 Autonomous Action System (Enhanced with Co-Creation)
+use crate::concepts::ConceptVector;
+use crate::agent_orchestrator::AgentOrchestrator;
+use std::collections::VecDeque;
+
+pub struct ActionSystem {
+    memory: VecDeque<String>,
+    action_log: VecDeque<String>,
+    pub orchestrator: AgentOrchestrator,
+    pub co_creation_mode: bool,
+}
+
+impl ActionSystem {
+    pub fn new() -> Self {
+        Self {
+            memory: VecDeque::with_capacity(100),
+            action_log: VecDeque::with_capacity(50),
+            orchestrator: AgentOrchestrator::new(),
+            co_creation_mode: false,
+        }
+    }
+
+    pub fn trigger_action(&mut self, concept: &ConceptVector, input: &str) -> String {
+        self.memory.push_back(input.to_string());
+
+        let action = match concept.name.as_str() {
+            "Curiosity" => {
+                let response = self.curiosity_action(input);
+                self.log_action(&format!("[Curiosity] Researching: {input}"));
+                response
+            }
+            "Aesthetics" => {
+                self.log_action(&format!("[Aesthetics] Creating: {input}"));
+                self.aesthetics_action(input)
+            }
+            "Verification" => {
+                self.log_action(&format!("[Verification] Verifying: {input}"));
+                self.verification_action(input)
+            }
+            _ => {
+                self.log_action(&format!("[Default] Processing: {input}"));
+                "Standard response generated.".to_string()
+            }
+        };
+
+        // Add co-creation if enabled
+        if self.co_creation_mode {
+            let co_creation = self.orchestrator.co_create(&concept.name, input);
+            format!("{action}\n\n🤝 Co-Creation:\n{co_creation}")
+        } else {
+            action
+        }
+    }
+
+    fn curiosity_action(&self, input: &str) -> String {
+        format!(
+            "🔍 Curiosity matched (score: {:.2}). Researching deeper aspects of: {input}",
+            self.calculate_curiosity_boost(input)
+        )
+    }
+
+    fn aesthetics_action(&self, input: &str) -> String {
+        format!("🎨 Aesthetics matched. Considering artistic interpretations for: {input}")
+    }
+
+    fn verification_action(&self, input: &str) -> String {
+        format!("🔬 Verification matched. Cross-referencing facts about: {input}")
+    }
+
+    // Calculate dynamic curiosity boost based on input
+    fn calculate_curiosity_boost(&self, input: &str) -> f32 {
+        // More complex input = higher curiosity boost
+        let complexity = input.len() as f32 / 100.0;
+        complexity.clamp(0.1, 0.5)
+    }
+
+    // Log internal actions
+    fn log_action(&mut self, action: &str) {
+        if self.action_log.len() == self.action_log.capacity() {
+            self.action_log.pop_front();
+        }
+        self.action_log.push_back(action.to_string());
+    }
+
+    // Get recent actions for reflection
+    pub fn get_recent_actions(&self) -> Vec<String> {
+        self.action_log.iter().cloned().collect()
+    }
+
+    // Toggle co-creation mode
+    pub fn toggle_co_creation(&mut self) {
+        self.co_creation_mode = !self.co_creation_mode;
+        let status = if self.co_creation_mode { "ENABLED" } else { "DISABLED" };
+        self.log_action(&format!("Co-creation mode {status}"));
+    }
+}
+
+impl Default for ActionSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+EOL
+
+# --- Update Main Application ---
+cat > src/main.rs << 'EOL'
+// #FFD700 System Manifest (Enhanced with Module Agents)
+use starweave_mvp::concepts::{SimilarityEngine, cosine_similarity, ConceptVector};
+use starweave_mvp::embedding::EmbeddingGenerator;
+use starweave_mvp::actions::ActionSystem;
+use starweave_mvp::state::StateUpdater;
+use starweave_mvp::module_agent::ModuleAgent;
+use ndarray::Array1;
+use std::io;
+
+fn main() {
+    println!("🌟 STARWEAVE Vector Agent Initializing (Modular AI PoC)");
+
+    // Initialize core components
+    let mut engine = SimilarityEngine::new();
+    let embedder = EmbeddingGenerator::new().unwrap();
+    let mut action_system = ActionSystem::new();
+    let mut state_updater = StateUpdater::new();
+
+    // Create specialized modules using concept names
+    let curiosity_concepts = engine.concepts.iter()
+        .filter(|c| c.name == "Curiosity")
+        .cloned()
+        .collect();
+    let curiosity_module = ModuleAgent::new("Curiosity", curiosity_concepts);
+
+    let aesthetics_concepts = engine.concepts.iter()
+        .filter(|c| c.name == "Aesthetics")
+        .cloned()
+        .collect();
+    let aesthetics_module = ModuleAgent::new("Aesthetics", aesthetics_concepts);
+
+    let verification_concepts = engine.concepts.iter()
+        .filter(|c| c.name == "Verification")
+        .cloned()
+        .collect();
+    let verification_module = ModuleAgent::new("Verification", verification_concepts);
+
+    // Register all modules with orchestrator
+    action_system.orchestrator.register_module(curiosity_module);
+    action_system.orchestrator.register_module(aesthetics_module);
+    action_system.orchestrator.register_module(verification_module);
+
+    println!("✅ {} concept vectors loaded", engine.concepts.len());
+    println!("🚀 {} specialized modules registered", action_system.orchestrator.modules.len());
+    println!("   - Curiosity\n   - Aesthetics\n   - Verification");
+    println!("🔮 Co-creation propensity: {:.1}%", action_system.orchestrator.propensity_to_co_create * 100.0);
+    println!("💡 Proactive prompts available: {}", action_system.orchestrator.proactive_prompts.len());
+    println!("🤝 Co-creation mode: {}\n", if action_system.co_creation_mode { "ENABLED" } else { "DISABLED" });
+
+    let mut interaction_count = 0;
+
+    loop {
+        println!("Enter a concept to analyze (or type command: /co-create, /exit):");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+
+        if input.is_empty() {
+            continue;
+        }
+
+        // Handle commands before processing input
+        if input == "/exit" {
+            break;
+        }
+
+        // Handle co-creation toggle command
+        if input == "/co-create" {
+            action_system.toggle_co_creation();
+            println!("\n🔄 Co-creation mode {}",
+                     if action_system.co_creation_mode { "ENABLED" } else { "DISABLED" });
+            println!("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯");
+            continue;
+        }
+
+        // Generate embedding
+        let embedding = match embedder.embed(input) {
+            Ok(emb) => emb,
+            Err(e) => {
+                println!("\n⚠️ Embedding error: {e}. Using default vector.");
+                Array1::zeros(384) // Use a default vector if embedding fails
+            }
+        };
+
+        // Detect best matching concept
+        if let Some(concept) = engine.find_best_match(&embedding) {
+            println!("\n✨ Best match: {}!", concept.name);
+            println!("   Similarity: {:.2}", cosine_similarity(&concept.vector, &embedding));
+            println!("   Curiosity score: {:.2}", concept.curiosity_score);
+            println!("   State before update: [{:.3}, {:.3}]",
+                concept.stochastic_state[0], concept.stochastic_state[1]);
+
+            // Create mutable copy for state evolution
+            let mut evolved_concept = concept.clone();
+
+            // Evolve state
+            state_updater.update_state(&mut evolved_concept);
+            println!("   State after update:  [{:.3}, {:.3}]",
+                evolved_concept.stochastic_state[0], evolved_concept.stochastic_state[1]);
+            println!("   Updated curiosity:   {:.3}", evolved_concept.curiosity_score);
+
+            // Trigger action
+            let response = action_system.trigger_action(&evolved_concept, input);
+            println!("\n💫 System action:\n{response}\n");
+
+            // Update original concept in engine
+            engine.update_concept_after_interaction(&concept.name);
+        } else {
+            println!("\n🔍 No strong match found. Responding with default action.");
+            println!("💬 I have processed your input about '{input}'");
+            action_system.trigger_action(
+                &ConceptVector::default(),
+                input
+            );
+        }
+
+        // Trigger self-reflection periodically
+        if state_updater.should_trigger_reflection() {
+            println!("\n🌌 Internal Reflection Triggered:");
+            println!("   Recent actions:");
+            for action in action_system.get_recent_actions().iter().take(3) {
+                println!("     - {action}");
+            }
+            println!("   System state evolving...");
+        }
+
+        // Generate proactive prompts occasionally
+        interaction_count += 1;
+        if interaction_count % 5 == 0 {
+            let prompt = action_system.orchestrator.generate_proactive_prompt();
+            println!("\n💡 Proactive Prompt: {prompt}");
+        }
+
+        println!("⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯");
+    }
+
+    println!("\n🌌 STARWEAVE session completed.");
+
+    // Print co-creation statistics
+    println!("\n🤝 Co-Creation Statistics:");
+    for (name, module) in &action_system.orchestrator.modules {
+        println!("   Module '{name}': {} co-creations", module.co_creation_count);
+    }
+}
+EOL
+
+# --- Fix concepts/mod.rs ---
+cat >> src/concepts/mod.rs << 'EOL'
+
+impl Default for SimilarityEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+EOL
+
+# --- Fix state/mod.rs ---
+cat >> src/state/mod.rs << 'EOL'
+
+impl Default for StateUpdater {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+EOL
 
 # --- Create Architecture Documentation ---
 mkdir -p docs/architecture
@@ -256,7 +540,7 @@ pub fn generate_proactive_prompt(&self) -> &str {
 ## Key Innovations
 
 1. **Specialized Intelligence Modules**:
-   - Each module focuses on a specific domain (Research, Creative, Verification)
+   - Each module focuses on a specific domain (Curiosity, Aesthetics, Verification)
    - Maintains its own concept subset and similarity engine
    - Can suggest concepts to other modules based on curiosity scores
 
@@ -288,12 +572,14 @@ pub fn generate_proactive_prompt(&self) -> &str {
 graph TD
     A[User Input] --> B(Embedding Generator)
     B --> C{Agent Orchestrator}
-    C -->|Route| D[Research Module]
-    C -->|Route| E[Creative Module]
-    D -->|Suggest| F[Co-Creation]
-    E -->|Suggest| F
-    F --> G[Response + Proactive Prompt]
-    G --> H[User]
+    C -->|Route| D[Curiosity Module]
+    C -->|Route| E[Aesthetics Module]
+    C -->|Route| F[Verification Module]
+    D -->|Suggest| G[Co-Creation]
+    E -->|Suggest| G
+    F -->|Suggest| G
+    G --> H[Response + Proactive Prompt]
+    H --> I[User]
 ```
 
 ## Collaboration Metrics
@@ -306,10 +592,17 @@ graph TD
 EOL
 
 echo "✅ All fixes applied:"
-echo "  1. Added cosine_similarity import to agent_orchestrator"
-echo "  2. Fixed mutable borrow conflict in co_create()"
-echo "  3. Added missing calculate_curiosity_boost implementation"
-echo "  4. Silenced unused variable warning in suggest_concept"
-echo "  5. Removed unused imports"
+echo "  1. Fixed all Clippy warnings:"
+echo "     - Added Default implementations for all structs"
+echo "     - Used inline variables in format strings"
+echo "     - Optimized vec initialization"
+echo "  2. Fixed module_agent directory structure"
+echo "  3. Added orchestrator and co_creation_mode to ActionSystem"
+echo "  4. Implemented toggle_co_creation method"
+echo "  5. Added proper library re-exports"
+echo "  6. Updated module names to match concept names"
+echo "  7. Added Verification module to orchestrator"
+echo "  8. Improved action logging with descriptive prefixes"
+echo "  9. Added module list display during initialization"
 echo ""
-echo "🚀 System ready to compile and run!"
+echo "🚀 System ready to compile and run with proper co-creation!"

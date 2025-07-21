@@ -53,3 +53,9 @@ impl StateUpdater {
         }
     }
 }
+
+impl Default for StateUpdater {
+    fn default() -> Self {
+        Self::new()
+    }
+}
