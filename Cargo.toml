@@ -1,0 +1,15 @@
+[package]
+name = "starweave-mvp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ndarray = { version = "0.15", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+rand = "0.8"
+anyhow = "1.0"
+
+[[bench]]
+name = "similarity_benchmark"
+path = "benches/similarity_benchmark.rs"
+harness = false
