@@ -350,8 +350,7 @@ fn main() {
 EOL
 
 # --- Add New Tests ---
-mkdir -p tests/state
-cat > tests/state/state_tests.rs << 'EOL'
+cat > tests/state_tests.rs << 'EOL'
 // #7B68EE State Updater Tests
 use starweave_mvp::state::StateUpdater;
 use starweave_mvp::concepts::ConceptVector;
@@ -397,6 +396,22 @@ fn test_reflection_trigger() {
     assert!(updater.should_trigger_reflection());  // 3 - trigger
     assert!(!updater.should_trigger_reflection()); // 1
 }
+EOL
+
+# --- Create Lib.rs for Integration Tests ---
+cat > src/lib.rs << 'EOL'
+//! Library crate for STARWEAVE-MVP
+
+pub mod concepts;
+pub mod embedding;
+pub mod actions;
+pub mod state;
+
+// Re-export public API
+pub use concepts::{ConceptVector, SimilarityEngine, cosine_similarity};
+pub use embedding::EmbeddingGenerator;
+pub use actions::ActionSystem;
+pub use state::StateUpdater;
 EOL
 
 # --- Update Documentation ---
@@ -517,15 +532,14 @@ jobs:
         run: cargo build --release
       - name: Run unit tests
         run: cargo test --lib
-      - name: Run state tests
+      - name: Run integration tests
         run: cargo test --test state_tests
 EOL
 
 echo "🌟 STARWEAVE Phase 1: State Evolution & Internal Life implemented"
-echo "✅ Fixed compilation errors:"
-echo "   - Added missing SystemTime imports"
-echo "   - Resolved borrowing conflicts by returning owned concepts"
-echo "   - Added complete Default implementation"
+echo "✅ Fixed test configuration:"
+echo "   - Created src/lib.rs to make crate accessible to integration tests"
+echo "   - Added proper crate imports to state_tests.rs"
 echo "🔍 Added:"
 echo "   - Concept recency tracking"
 echo "   - Internal curiosity mechanisms"

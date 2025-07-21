@@ -25,5 +25,5 @@ jobs:
         run: cargo build --release
       - name: Run unit tests
         run: cargo test --lib
-      - name: Run state tests
+      - name: Run integration tests
         run: cargo test --test state_tests
